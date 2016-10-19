@@ -493,11 +493,11 @@ public class CameraView extends FrameLayout
         }
 
         @Override
-        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        public void onAutoFocus(boolean success, Rect rect)
         {
             for (Callback callback : mCallbacks)
             {
-                callback.onAutoFocus(success, focusList);
+                callback.onAutoFocus(success, rect);
             }
         }
 
@@ -588,7 +588,7 @@ public class CameraView extends FrameLayout
         public void onPictureTaken(CameraView cameraView, byte[] data) {
         }
 
-        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        public void onAutoFocus(boolean success, Rect rect)
         {
 
         }

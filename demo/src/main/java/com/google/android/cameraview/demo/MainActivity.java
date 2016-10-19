@@ -129,17 +129,16 @@ public class MainActivity extends AppCompatActivity implements
                             (int)(x + touchMajor/2),
                             (int)(y + touchMinor/2));
                     final Rect targetFocusRect = new Rect(
-                            touchRect.left * 2000/mFocusAreaView.getWidth() - 1000,
-                            touchRect.top * 2000/mFocusAreaView.getHeight() - 1000,
-                            touchRect.right * 2000/mFocusAreaView.getWidth() - 1000,
-                            touchRect.bottom * 2000/mFocusAreaView.getHeight() - 1000);
-
+                            touchRect.left,// / mFocusAreaView.getWidth(),
+                            touchRect.top,// / mFocusAreaView.getHeight(),
+                            touchRect.right,// / mFocusAreaView.getWidth(),
+                            touchRect.bottom// / mFocusAreaView.getHeight()
+                    );
 
                     if (mCameraView.isCameraOpened())
                     {
                         mCameraView.setFocusPoints(targetFocusRect);
                     }
-
                 }
                 return true;
             }
@@ -254,11 +253,11 @@ public class MainActivity extends AppCompatActivity implements
             = new CameraView.Callback() {
 
         @Override
-        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        public void onAutoFocus(boolean success,  Rect rect)
         {
-            Log.d(TAG, "onAutoFocus: " + focusList + " - success:" + success);
+            Log.d(TAG, "onAutoFocus: " + rect+ " - success:" + success);
             mFocusAreaView.setHaveFocus(success);
-            mFocusAreaView.setFocusPoints(focusList);
+            mFocusAreaView.setFocusPoint(rect);
             mFocusAreaView.invalidate();
 
         }

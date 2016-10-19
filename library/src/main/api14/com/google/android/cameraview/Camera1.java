@@ -192,8 +192,13 @@ class Camera1 extends CameraViewImpl {
     public void setFocusPoints(Rect focusRect)
     {
         final List<Camera.Area> focusList = new ArrayList<Camera.Area>();
-        Log.d("focus area", "focus:" + focusRect.toString());
-        Camera.Area focusArea = new Camera.Area(focusRect, 1000);
+        final Rect targetFocusRect = new Rect(
+                focusRect.left * 2000 - 1000,
+                focusRect.top * 2000 - 1000,
+                focusRect.right * 2000 - 1000,
+                focusRect.bottom * 2000 - 1000);
+
+        Camera.Area focusArea = new Camera.Area(targetFocusRect, 1000);
         focusList.add(focusArea);
         if (isCameraOpened())
         {
@@ -205,10 +210,34 @@ class Camera1 extends CameraViewImpl {
                 @Override
                 public void onAutoFocus(boolean success, Camera camera)
                 {
-                    mCallback.onAutoFocus(success, mCameraParameters.getFocusAreas());
+                    doAutoFocusCallback(success);
                 }
             });
         }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+    private void doAutoFocusCallback(boolean success)
+    {
+        Rect rect = null;
+        if (mCameraParameters.getFocusAreas() != null && mCameraParameters.getFocusAreas().size() > 0)
+        {
+            success = true;
+            Camera.Area area = mCameraParameters.getFocusAreas().get(0);
+            int vWidth = getView().getWidth();
+            int vHeight = getView().getHeight();
+
+            int l = area.rect.left;
+            int t = area.rect.top;
+            int r = area.rect.right;
+            int b = area.rect.bottom;
+            int left = ((l+1000) * vWidth/2000);
+            int top  = ((t+1000) * vHeight/2000);
+            int right = ((r+1000) * vWidth/2000);
+            int bottom = ((b+1000) * vHeight/2000);
+            rect = new Rect(left, top, right, bottom);
+        }
+        mCallback.onAutoFocus(success, rect);
     }
 
 
@@ -244,8 +273,10 @@ class Camera1 extends CameraViewImpl {
         if (getAutoFocus()) {
             mCamera.cancelAutoFocus();
             mCamera.autoFocus(new Camera.AutoFocusCallback() {
+                @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
                 @Override
                 public void onAutoFocus(boolean success, Camera camera) {
+                    doAutoFocusCallback(success);
                     takePictureInternal();
                 }
             });

@@ -74,7 +74,7 @@ abstract class CameraViewImpl {
 
         void onPictureTaken(byte[] data);
 
-        void onAutoFocus(boolean success, List<Camera.Area> focusList);
+        void onAutoFocus(boolean success, Rect focusRect);
     }
 
 }
