@@ -17,13 +17,16 @@
 package com.google.android.cameraview;
 
 import android.annotation.SuppressLint;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.support.v4.util.SparseArrayCompat;
 import android.view.SurfaceHolder;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
@@ -67,6 +70,8 @@ class Camera1 extends CameraViewImpl {
 
     private int mDisplayOrientation;
 
+
+
     Camera1(Callback callback, PreviewImpl preview) {
         super(callback, preview);
         preview.setCallback(new PreviewImpl.Callback() {
@@ -99,6 +104,9 @@ class Camera1 extends CameraViewImpl {
         mShowingPreview = false;
         releaseCamera();
     }
+
+
+
 
     @SuppressLint("NewApi") // Suppresses Camera#setPreviewTexture
     void setUpPreview() {
@@ -178,6 +186,22 @@ class Camera1 extends CameraViewImpl {
             mCamera.setParameters(mCameraParameters);
         }
     }
+
+    @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+    public void setFocusPoints(Rect focusRect)
+    {
+        final List<Camera.Area> focusList = new ArrayList<Camera.Area>();
+        Camera.Area focusArea = null;
+        focusArea = new Camera.Area(focusRect, 1000);
+        focusList.add(focusArea);
+        setAutoFocus(false);
+        if (isCameraOpened())
+        {   mCameraParameters.setFocusAreas(focusList);
+            mCameraParameters.setMeteringAreas(focusList);
+            mCamera.setParameters(mCameraParameters);
+        }
+    }
+
 
     @Override
     boolean getAutoFocus() {
