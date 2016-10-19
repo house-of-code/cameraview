@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Rect;
+import android.hardware.Camera;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -34,6 +35,7 @@ import android.widget.FrameLayout;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public class CameraView extends FrameLayout
@@ -490,6 +492,15 @@ public class CameraView extends FrameLayout
             }
         }
 
+        @Override
+        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        {
+            for (Callback callback : mCallbacks)
+            {
+                callback.onAutoFocus(success, focusList);
+            }
+        }
+
         public void reserveRequestLayoutOnOpen() {
             mRequestLayoutOnOpen = true;
         }
@@ -575,6 +586,11 @@ public class CameraView extends FrameLayout
          * @param data       JPEG data.
          */
         public void onPictureTaken(CameraView cameraView, byte[] data) {
+        }
+
+        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        {
+
         }
     }
 

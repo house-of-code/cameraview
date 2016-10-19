@@ -23,6 +23,7 @@ import android.hardware.Camera;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.support.v4.util.SparseArrayCompat;
+import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.io.IOException;
@@ -191,14 +192,22 @@ class Camera1 extends CameraViewImpl {
     public void setFocusPoints(Rect focusRect)
     {
         final List<Camera.Area> focusList = new ArrayList<Camera.Area>();
-        Camera.Area focusArea = null;
-        focusArea = new Camera.Area(focusRect, 1000);
+        Log.d("focus area", "focus:" + focusRect.toString());
+        Camera.Area focusArea = new Camera.Area(focusRect, 1000);
         focusList.add(focusArea);
-        setAutoFocus(false);
         if (isCameraOpened())
-        {   mCameraParameters.setFocusAreas(focusList);
-            mCameraParameters.setMeteringAreas(focusList);
+        {
+            mCameraParameters.setFocusAreas(focusList);
+            //mCameraParameters.setMeteringAreas(focusList);
             mCamera.setParameters(mCameraParameters);
+            mCamera.autoFocus(new Camera.AutoFocusCallback()
+            {
+                @Override
+                public void onAutoFocus(boolean success, Camera camera)
+                {
+                    mCallback.onAutoFocus(success, mCameraParameters.getFocusAreas());
+                }
+            });
         }
     }
 
