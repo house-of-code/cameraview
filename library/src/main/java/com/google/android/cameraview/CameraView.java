@@ -418,7 +418,8 @@ public class CameraView extends FrameLayout
      * @return {@code true} if the continuous auto-focus mode is enabled. {@code false} if it is
      * disabled, or if it is not supported by the current camera.
      */
-    public boolean getAutoFocus() {
+    public boolean getAutoFocus()
+    {
         return mImpl.getAutoFocus();
     }
 
@@ -427,7 +428,8 @@ public class CameraView extends FrameLayout
      *
      * @param flash The desired flash mode.
      */
-    public void setFlash(@Flash int flash) {
+    public void setFlash(@Flash int flash)
+    {
         mImpl.setFlash(flash);
     }
 
@@ -437,9 +439,15 @@ public class CameraView extends FrameLayout
      * @return The current flash mode.
      */
     @Flash
-    public int getFlash() {
+    public int getFlash()
+    {
         //noinspection WrongConstant
         return mImpl.getFlash();
+    }
+
+    public int numberOfCameras()
+    {
+        return mImpl.cameraCount();
     }
 
     /**

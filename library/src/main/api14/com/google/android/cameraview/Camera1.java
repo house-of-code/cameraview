@@ -106,8 +106,11 @@ class Camera1 extends CameraViewImpl {
         releaseCamera();
     }
 
-
-
+    @Override
+    int cameraCount()
+    {
+        return Camera.getNumberOfCameras();
+    }
 
     @SuppressLint("NewApi") // Suppresses Camera#setPreviewTexture
     void setUpPreview() {

@@ -20,6 +20,7 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -59,7 +60,18 @@ class Camera2 extends CameraViewImpl {
     }
 
 
-
+    @Override
+    int cameraCount()
+    {
+        try
+        {
+            return mCameraManager.getCameraIdList().length;
+        } catch (CameraAccessException e)
+        {
+            e.printStackTrace();
+        }
+        return 0;
+    }
 
     private final CameraManager mCameraManager;
 
@@ -155,8 +167,7 @@ class Camera2 extends CameraViewImpl {
             if (result.get(CaptureResult.CONTROL_AF_REGIONS) != null && result.get(CaptureResult.CONTROL_AF_REGIONS).length > 0)
             {
                 MeteringRectangle mRect = result.get(CaptureResult.CONTROL_AF_REGIONS)[0];
-
-                mCallback.onAutoFocus(true, mRect.getRect());
+                mCallback.onAutoFocus(true , mRect.getRect());
             }
             else
             {

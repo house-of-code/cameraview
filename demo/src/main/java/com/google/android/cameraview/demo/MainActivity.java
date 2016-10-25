@@ -148,11 +148,16 @@ public class MainActivity extends AppCompatActivity implements
         if (actionBar != null) {
             actionBar.setDisplayShowTitleEnabled(false);
         }
+        Log.e(TAG, "Camera Count:" + mCameraView.numberOfCameras());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (mCameraView.numberOfCameras() == 0)
+        {
+            return;
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             mCameraView.start();

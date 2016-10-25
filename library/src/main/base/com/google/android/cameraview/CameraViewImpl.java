@@ -77,4 +77,6 @@ abstract class CameraViewImpl {
         void onAutoFocus(boolean success, Rect focusRect);
     }
 
+    abstract int cameraCount();
+
 }
