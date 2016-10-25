@@ -19,6 +19,7 @@ package com.google.android.cameraview;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -53,6 +54,9 @@ class Camera2 extends CameraViewImpl {
         INTERNAL_FACINGS.put(Constants.FACING_FRONT, CameraCharacteristics.LENS_FACING_FRONT);
     }
 
+
+
+
     private final CameraManager mCameraManager;
 
     private final CameraDevice.StateCallback mCameraDeviceCallback
@@ -61,6 +65,7 @@ class Camera2 extends CameraViewImpl {
         @Override
         public void onOpened(@NonNull CameraDevice camera) {
             mCamera = camera;
+
             mCallback.onCameraOpened();
             startCaptureSession();
         }
@@ -285,6 +290,10 @@ class Camera2 extends CameraViewImpl {
                 }
             }
         }
+    }
+    void setFocusPoints(Rect focusRect)
+    {
+
     }
 
     @Override

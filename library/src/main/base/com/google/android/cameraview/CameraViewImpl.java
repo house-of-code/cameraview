@@ -16,8 +16,11 @@
 
 package com.google.android.cameraview;
 
+import android.graphics.Rect;
+import android.hardware.Camera;
 import android.view.View;
 
+import java.util.List;
 import java.util.Set;
 
 abstract class CameraViewImpl {
@@ -52,7 +55,7 @@ abstract class CameraViewImpl {
     abstract AspectRatio getAspectRatio();
 
     abstract void setAutoFocus(boolean autoFocus);
-
+    abstract void setFocusPoints(Rect focusRect);
     abstract boolean getAutoFocus();
 
     abstract void setFlash(int flash);
@@ -71,6 +74,7 @@ abstract class CameraViewImpl {
 
         void onPictureTaken(byte[] data);
 
+        void onAutoFocus(boolean success, List<Camera.Area> focusList);
     }
 
 }

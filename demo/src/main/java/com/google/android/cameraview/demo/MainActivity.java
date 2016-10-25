@@ -22,6 +22,8 @@ import android.Manifest;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
+import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -40,6 +42,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
@@ -47,6 +50,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity implements
@@ -95,6 +99,8 @@ public class MainActivity extends AppCompatActivity implements
         }
     };
 
+    private FocusArea mFocusAreaView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -103,6 +109,42 @@ public class MainActivity extends AppCompatActivity implements
         if (mCameraView != null) {
             mCameraView.addCallback(mCallback);
         }
+
+        mFocusAreaView = new FocusArea(this);
+        mCameraView.addView(mFocusAreaView);
+        mCameraView.setOnTouchListener(new View.OnTouchListener()
+        {
+            @Override
+            public boolean onTouch(View v, MotionEvent event)
+            {
+                if(event.getAction() == MotionEvent.ACTION_DOWN){
+                    float x = event.getX();
+                    float y = event.getY();
+                    float touchMajor = event.getTouchMajor();
+                    float touchMinor = event.getTouchMinor();
+
+                    Rect touchRect = new Rect(
+                            (int)(x - touchMajor/2),
+                            (int)(y - touchMinor/2),
+                            (int)(x + touchMajor/2),
+                            (int)(y + touchMinor/2));
+                    final Rect targetFocusRect = new Rect(
+                            touchRect.left * 2000/mFocusAreaView.getWidth() - 1000,
+                            touchRect.top * 2000/mFocusAreaView.getHeight() - 1000,
+                            touchRect.right * 2000/mFocusAreaView.getWidth() - 1000,
+                            touchRect.bottom * 2000/mFocusAreaView.getHeight() - 1000);
+
+
+                    if (mCameraView.isCameraOpened())
+                    {
+                        mCameraView.setFocusPoints(targetFocusRect);
+                    }
+
+                }
+                return true;
+            }
+        });
+
         FloatingActionButton takePicture = (FloatingActionButton) findViewById(R.id.take_picture);
         if (takePicture != null) {
             takePicture.setOnClickListener(mOnClickListener);
@@ -210,6 +252,16 @@ public class MainActivity extends AppCompatActivity implements
 
     private CameraView.Callback mCallback
             = new CameraView.Callback() {
+
+        @Override
+        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        {
+            Log.d(TAG, "onAutoFocus: " + focusList + " - success:" + success);
+            mFocusAreaView.setHaveFocus(success);
+            mFocusAreaView.setFocusPoints(focusList);
+            mFocusAreaView.invalidate();
+
+        }
 
         @Override
         public void onCameraOpened(CameraView cameraView) {
