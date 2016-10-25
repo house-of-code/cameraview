@@ -20,14 +20,17 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
@@ -37,7 +40,9 @@ import android.util.Log;
 import android.util.SparseIntArray;
 import android.view.Surface;
 
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.SortedSet;
@@ -55,7 +60,18 @@ class Camera2 extends CameraViewImpl {
     }
 
 
-
+    @Override
+    int cameraCount()
+    {
+        try
+        {
+            return mCameraManager.getCameraIdList().length;
+        } catch (CameraAccessException e)
+        {
+            e.printStackTrace();
+        }
+        return 0;
+    }
 
     private final CameraManager mCameraManager;
 
@@ -144,7 +160,23 @@ class Camera2 extends CameraViewImpl {
             captureStillPicture();
         }
 
+        @Override
+        public void onFocus(CaptureResult result)
+        {
+            Log.d(TAG, "we got focus: " + result.get(CaptureResult.CONTROL_AF_REGIONS));
+            if (result.get(CaptureResult.CONTROL_AF_REGIONS) != null && result.get(CaptureResult.CONTROL_AF_REGIONS).length > 0)
+            {
+                MeteringRectangle mRect = result.get(CaptureResult.CONTROL_AF_REGIONS)[0];
+                mCallback.onAutoFocus(true , mRect.getRect());
+            }
+            else
+            {
+                mCallback.onAutoFocus(false, new Rect());
+            }
+
+        }
     };
+
 
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener
             = new ImageReader.OnImageAvailableListener() {
@@ -293,7 +325,25 @@ class Camera2 extends CameraViewImpl {
     }
     void setFocusPoints(Rect focusRect)
     {
+        //CONTROL_AF_REGIONS
+        if (mPreviewRequestBuilder != null)
+        {
 
+            MeteringRectangle[] focusAreas = new MeteringRectangle[1];
+            focusAreas[0] = new MeteringRectangle(focusRect,MeteringRectangle.METERING_WEIGHT_MAX);
+
+            if(mCameraCharacteristics!= null && mCameraCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) > 0)
+            {
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, focusAreas);
+            }
+            if (mCaptureSession != null) {
+                try {
+                    mCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(), mCaptureCallback, null);
+                } catch (CameraAccessException e) {
+
+                }
+            }
+        }
     }
 
     @Override
@@ -650,6 +700,7 @@ class Camera2 extends CameraViewImpl {
         static final int STATE_CAPTURING = 5;
 
         private int mState;
+        private boolean areWeFocused;
 
         PictureCaptureCallback() {
         }
@@ -708,9 +759,27 @@ class Camera2 extends CameraViewImpl {
                     }
                     break;
                 }
+                case STATE_PREVIEW: {
+
+                    int afState = result.get(CaptureResult.CONTROL_AF_STATE);
+                    if (CaptureResult.CONTROL_AF_TRIGGER_START == afState) {
+                        if (areWeFocused) {
+                            onFocus(result);
+                        }
+                    }
+                    if (CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED == afState) {
+                        areWeFocused = true;
+                    } else {
+                        areWeFocused = false;
+                    }
+
+                    break;
+                }
+
             }
         }
 
+        public abstract void onFocus(CaptureResult result);
         /**
          * Called when it is ready to take a still picture.
          */
@@ -722,5 +791,6 @@ class Camera2 extends CameraViewImpl {
         public abstract void onPrecaptureRequired();
 
     }
+
 
 }

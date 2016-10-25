@@ -128,16 +128,9 @@ public class MainActivity extends AppCompatActivity implements
                             (int)(y - touchMinor/2),
                             (int)(x + touchMajor/2),
                             (int)(y + touchMinor/2));
-                    final Rect targetFocusRect = new Rect(
-                            touchRect.left * 2000/mFocusAreaView.getWidth() - 1000,
-                            touchRect.top * 2000/mFocusAreaView.getHeight() - 1000,
-                            touchRect.right * 2000/mFocusAreaView.getWidth() - 1000,
-                            touchRect.bottom * 2000/mFocusAreaView.getHeight() - 1000);
-
-
                     if (mCameraView.isCameraOpened())
                     {
-                        mCameraView.setFocusPoints(targetFocusRect);
+                        mCameraView.setFocusPoints(touchRect);
                     }
 
                 }
@@ -155,11 +148,16 @@ public class MainActivity extends AppCompatActivity implements
         if (actionBar != null) {
             actionBar.setDisplayShowTitleEnabled(false);
         }
+        Log.e(TAG, "Camera Count:" + mCameraView.numberOfCameras());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (mCameraView.numberOfCameras() == 0)
+        {
+            return;
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             mCameraView.start();
@@ -254,13 +252,12 @@ public class MainActivity extends AppCompatActivity implements
             = new CameraView.Callback() {
 
         @Override
-        public void onAutoFocus(boolean success, List<Camera.Area> focusList)
+        public void onAutoFocus(boolean success, Rect rect)
         {
-            Log.d(TAG, "onAutoFocus: " + focusList + " - success:" + success);
+            Log.d(TAG, "onAutoFocus: " + rect + " - success");
             mFocusAreaView.setHaveFocus(success);
-            mFocusAreaView.setFocusPoints(focusList);
+            mFocusAreaView.setFocusPoint(rect);
             mFocusAreaView.invalidate();
-
         }
 
         @Override

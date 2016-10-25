@@ -106,8 +106,11 @@ class Camera1 extends CameraViewImpl {
         releaseCamera();
     }
 
-
-
+    @Override
+    int cameraCount()
+    {
+        return Camera.getNumberOfCameras();
+    }
 
     @SuppressLint("NewApi") // Suppresses Camera#setPreviewTexture
     void setUpPreview() {
@@ -190,24 +193,71 @@ class Camera1 extends CameraViewImpl {
     @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     public void setFocusPoints(Rect focusRect)
     {
+        double w = getView().getWidth();
+        double h = getView().getHeight();
         final List<Camera.Area> focusList = new ArrayList<Camera.Area>();
-        Log.d("focus area", "focus:" + focusRect.toString());
-        Camera.Area focusArea = new Camera.Area(focusRect, 1000);
+        final Rect targetFocusRect = new Rect(
+
+
+                (int)(((double)focusRect.left / w) * 2000) - 1000,
+                (int)(((double)focusRect.top / h) * 2000) - 1000,
+                (int)(((double)focusRect.right/ w) * 2000) - 1000,
+                (int)(((double)focusRect.bottom/ h) * 2000) - 1000);
+        Camera.Area focusArea = new Camera.Area(targetFocusRect, 1000);
         focusList.add(focusArea);
         if (isCameraOpened())
         {
-            mCameraParameters.setFocusAreas(focusList);
-            //mCameraParameters.setMeteringAreas(focusList);
-            mCamera.setParameters(mCameraParameters);
-            mCamera.autoFocus(new Camera.AutoFocusCallback()
+            try
             {
-                @Override
-                public void onAutoFocus(boolean success, Camera camera)
+                mCameraParameters.setFocusAreas(focusList);
+                //mCameraParameters.setMeteringAreas(focusList);
+                mCamera.setParameters(mCameraParameters);
+                mCamera.autoFocus(new Camera.AutoFocusCallback()
                 {
-                    mCallback.onAutoFocus(success, mCameraParameters.getFocusAreas());
-                }
-            });
+                    @Override
+                    public void onAutoFocus(boolean success, Camera camera)
+                    {
+                        doAutoFocusCallback(success);
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
         }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+    private void doAutoFocusCallback(boolean success)
+    {
+        Rect rect = null;
+        if (mCameraParameters.getFocusAreas() != null && mCameraParameters.getFocusAreas().size() > 0)
+        {
+            success = true;
+            Camera.Area area = mCameraParameters.getFocusAreas().get(0);
+            int w = getView().getWidth();
+            int h = getView().getHeight();
+
+            /*
+                (x / w) * 2000 - 1000 = y
+                (y + 1000) = (x/w)*2000
+                (y + 1000)/ 2000 = x/w
+                ((y + 1000)/ 2000) * w = x
+                 */
+
+            double l = (area.rect.left + 1000.0f)* w;
+            double t = (area.rect.top + 1000.0f) * h;
+            double r = (area.rect.right + 1000.0f) * w;
+            double b = (area.rect.bottom + 1000.0f) * h;
+
+            int left = (int)(l / 2000.0f);
+            int top  = (int)(t / 2000.f);
+            int right = (int)(r / 2000.0f);
+            int bottom = (int)(b / 2000.0f);
+            rect = new Rect(left, top, right, bottom);
+        }
+        mCallback.onAutoFocus(success, rect);
     }
 
 
@@ -243,8 +293,10 @@ class Camera1 extends CameraViewImpl {
         if (getAutoFocus()) {
             mCamera.cancelAutoFocus();
             mCamera.autoFocus(new Camera.AutoFocusCallback() {
+                @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
                 @Override
                 public void onAutoFocus(boolean success, Camera camera) {
+                    doAutoFocusCallback(success);
                     takePictureInternal();
                 }
             });
