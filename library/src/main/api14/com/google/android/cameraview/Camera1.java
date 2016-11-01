@@ -317,6 +317,7 @@ class Camera1 extends CameraViewImpl {
 
     @Override
     void setDisplayOrientation(int displayOrientation) {
+        Log.e("Camera1", "setDisplayOrientation(" + displayOrientation + ")");
         if (mDisplayOrientation == displayOrientation) {
             return;
         }
