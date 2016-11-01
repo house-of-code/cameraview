@@ -231,13 +231,15 @@ class Camera1 extends CameraViewImpl {
     @RequiresApi(api = Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     private void doAutoFocusCallback(boolean success)
     {
-        Rect rect = null;
-        if (mCameraParameters.getFocusAreas() != null && mCameraParameters.getFocusAreas().size() > 0)
+        try
         {
-            success = true;
-            Camera.Area area = mCameraParameters.getFocusAreas().get(0);
-            int w = getView().getWidth();
-            int h = getView().getHeight();
+            Rect rect = null;
+            if (mCameraParameters.getFocusAreas() != null && mCameraParameters.getFocusAreas().size() > 0)
+            {
+                success = true;
+                Camera.Area area = mCameraParameters.getFocusAreas().get(0);
+                int w = getView().getWidth();
+                int h = getView().getHeight();
 
             /*
                 (x / w) * 2000 - 1000 = y
@@ -246,18 +248,23 @@ class Camera1 extends CameraViewImpl {
                 ((y + 1000)/ 2000) * w = x
                  */
 
-            double l = (area.rect.left + 1000.0f)* w;
-            double t = (area.rect.top + 1000.0f) * h;
-            double r = (area.rect.right + 1000.0f) * w;
-            double b = (area.rect.bottom + 1000.0f) * h;
+                double l = (area.rect.left + 1000.0f)* w;
+                double t = (area.rect.top + 1000.0f) * h;
+                double r = (area.rect.right + 1000.0f) * w;
+                double b = (area.rect.bottom + 1000.0f) * h;
 
-            int left = (int)(l / 2000.0f);
-            int top  = (int)(t / 2000.f);
-            int right = (int)(r / 2000.0f);
-            int bottom = (int)(b / 2000.0f);
-            rect = new Rect(left, top, right, bottom);
+                int left = (int)(l / 2000.0f);
+                int top  = (int)(t / 2000.f);
+                int right = (int)(r / 2000.0f);
+                int bottom = (int)(b / 2000.0f);
+                rect = new Rect(left, top, right, bottom);
+            }
+            mCallback.onAutoFocus(success, rect);
         }
-        mCallback.onAutoFocus(success, rect);
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
     }
 
 
@@ -317,7 +324,6 @@ class Camera1 extends CameraViewImpl {
 
     @Override
     void setDisplayOrientation(int displayOrientation) {
-        Log.e("Camera1", "setDisplayOrientation(" + displayOrientation + ")");
         if (mDisplayOrientation == displayOrientation) {
             return;
         }
