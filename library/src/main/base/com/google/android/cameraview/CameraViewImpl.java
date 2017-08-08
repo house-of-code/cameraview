@@ -38,7 +38,10 @@ abstract class CameraViewImpl {
         return mPreview.getView();
     }
 
-    abstract void start();
+    /**
+     * @return {@code true} if the implementation was able to start the camera session.
+     */
+    abstract boolean start();
 
     abstract void stop();
 
@@ -50,7 +53,10 @@ abstract class CameraViewImpl {
 
     abstract Set<AspectRatio> getSupportedAspectRatios();
 
-    abstract void setAspectRatio(AspectRatio ratio);
+    /**
+     * @return {@code true} if the aspect ratio was changed.
+     */
+    abstract boolean setAspectRatio(AspectRatio ratio);
 
     abstract AspectRatio getAspectRatio();
 

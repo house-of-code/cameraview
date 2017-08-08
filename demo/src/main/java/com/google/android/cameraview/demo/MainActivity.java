@@ -16,8 +16,6 @@
 
 package com.google.android.cameraview.demo;
 
-import com.google.android.cameraview.CameraView;
-
 import android.Manifest;
 import android.app.Dialog;
 import android.content.DialogInterface;
@@ -34,6 +32,7 @@ import android.support.annotation.StringRes;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
@@ -46,15 +45,24 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
+import com.google.android.cameraview.AspectRatio;
+import com.google.android.cameraview.CameraView;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Set;
 
 
+/**
+ * This demo app saves the taken picture to a constant file.
+ * $ adb pull /sdcard/Android/data/com.google.android.cameraview.demo/files/Pictures/picture.jpg
+ */
 public class MainActivity extends AppCompatActivity implements
-        ActivityCompat.OnRequestPermissionsResultCallback {
+        ActivityCompat.OnRequestPermissionsResultCallback,
+        AspectRatioFragment.Listener {
 
     private static final String TAG = "MainActivity";
 
@@ -109,7 +117,6 @@ public class MainActivity extends AppCompatActivity implements
         if (mCameraView != null) {
             mCameraView.addCallback(mCallback);
         }
-
         mFocusAreaView = new FocusArea(this);
         mCameraView.addView(mFocusAreaView);
         mCameraView.setOnTouchListener(new View.OnTouchListener()
@@ -138,9 +145,9 @@ public class MainActivity extends AppCompatActivity implements
             }
         });
 
-        FloatingActionButton takePicture = (FloatingActionButton) findViewById(R.id.take_picture);
-        if (takePicture != null) {
-            takePicture.setOnClickListener(mOnClickListener);
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.take_picture);
+        if (fab != null) {
+            fab.setOnClickListener(mOnClickListener);
         }
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -196,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+            @NonNull int[] grantResults) {
         switch (requestCode) {
             case REQUEST_CAMERA_PERMISSION:
                 if (permissions.length != 1 || grantResults.length != 1) {
@@ -220,6 +227,16 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.aspect_ratio:
+                FragmentManager fragmentManager = getSupportFragmentManager();
+                if (mCameraView != null
+                        && fragmentManager.findFragmentByTag(FRAGMENT_DIALOG) == null) {
+                    final Set<AspectRatio> ratios = mCameraView.getSupportedAspectRatios();
+                    final AspectRatio currentRatio = mCameraView.getAspectRatio();
+                    AspectRatioFragment.newInstance(ratios, currentRatio)
+                            .show(fragmentManager, FRAGMENT_DIALOG);
+                }
+                return true;
             case R.id.switch_flash:
                 if (mCameraView != null) {
                     mCurrentFlash = (mCurrentFlash + 1) % FLASH_OPTIONS.length;
@@ -227,16 +244,24 @@ public class MainActivity extends AppCompatActivity implements
                     item.setIcon(FLASH_ICONS[mCurrentFlash]);
                     mCameraView.setFlash(FLASH_OPTIONS[mCurrentFlash]);
                 }
-                break;
+                return true;
             case R.id.switch_camera:
                 if (mCameraView != null) {
                     int facing = mCameraView.getFacing();
                     mCameraView.setFacing(facing == CameraView.FACING_FRONT ?
                             CameraView.FACING_BACK : CameraView.FACING_FRONT);
                 }
-                break;
+                return true;
         }
-        return false;
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onAspectRatioSelected(@NonNull AspectRatio ratio) {
+        if (mCameraView != null) {
+            Toast.makeText(this, ratio.toString(), Toast.LENGTH_SHORT).show();
+            mCameraView.setAspectRatio(ratio);
+        }
     }
 
     private Handler getBackgroundHandler() {
@@ -278,8 +303,6 @@ public class MainActivity extends AppCompatActivity implements
             getBackgroundHandler().post(new Runnable() {
                 @Override
                 public void run() {
-                    // This demo app saves the taken picture to a constant file.
-                    // $ adb pull /sdcard/Android/data/com.google.android.cameraview.demo/files/Pictures/picture.jpg
                     File file = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES),
                             "picture.jpg");
                     OutputStream os = null;
@@ -312,8 +335,7 @@ public class MainActivity extends AppCompatActivity implements
         private static final String ARG_NOT_GRANTED_MESSAGE = "not_granted_message";
 
         public static ConfirmationDialogFragment newInstance(@StringRes int message,
-                                                             String[] permissions, int requestCode,
-                                                             @StringRes int notGrantedMessage) {
+                String[] permissions, int requestCode, @StringRes int notGrantedMessage) {
             ConfirmationDialogFragment fragment = new ConfirmationDialogFragment();
             Bundle args = new Bundle();
             args.putInt(ARG_MESSAGE, message);

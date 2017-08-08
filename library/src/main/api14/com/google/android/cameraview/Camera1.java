@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 
 @SuppressWarnings("deprecation")
 class Camera1 extends CameraViewImpl {
@@ -48,6 +50,8 @@ class Camera1 extends CameraViewImpl {
     }
 
     private int mCameraId;
+
+    private final AtomicBoolean isPictureCaptureInProgress = new AtomicBoolean(false);
 
     Camera mCamera;
 
@@ -76,18 +80,18 @@ class Camera1 extends CameraViewImpl {
     Camera1(Callback callback, PreviewImpl preview) {
         super(callback, preview);
         preview.setCallback(new PreviewImpl.Callback() {
-                @Override
-                public void onSurfaceChanged() {
-                    if (mCamera != null) {
-                        setUpPreview();
-                        adjustCameraParameters();
-                    }
+            @Override
+            public void onSurfaceChanged() {
+                if (mCamera != null) {
+                    setUpPreview();
+                    adjustCameraParameters();
                 }
-            });
+            }
+        });
     }
 
     @Override
-    void start() {
+    boolean start() {
         chooseCamera();
         openCamera();
         if (mPreview.isReady()) {
@@ -95,6 +99,7 @@ class Camera1 extends CameraViewImpl {
         }
         mShowingPreview = true;
         mCamera.startPreview();
+        return true;
     }
 
     @Override
@@ -112,7 +117,8 @@ class Camera1 extends CameraViewImpl {
         return Camera.getNumberOfCameras();
     }
 
-    @SuppressLint("NewApi") // Suppresses Camera#setPreviewTexture
+    // Suppresses Camera#setPreviewTexture
+    @SuppressLint("NewApi")
     void setUpPreview() {
         try {
             if (mPreview.getOutputClass() == SurfaceHolder.class) {
@@ -156,14 +162,21 @@ class Camera1 extends CameraViewImpl {
 
     @Override
     Set<AspectRatio> getSupportedAspectRatios() {
-        return mPreviewSizes.ratios();
+        SizeMap idealAspectRatios = mPreviewSizes;
+        for (AspectRatio aspectRatio : idealAspectRatios.ratios()) {
+            if (mPictureSizes.sizes(aspectRatio) == null) {
+                idealAspectRatios.remove(aspectRatio);
+            }
+        }
+        return idealAspectRatios.ratios();
     }
 
     @Override
-    void setAspectRatio(AspectRatio ratio) {
+    boolean setAspectRatio(AspectRatio ratio) {
         if (mAspectRatio == null || !isCameraOpened()) {
             // Handle this later when camera is opened
             mAspectRatio = ratio;
+            return true;
         } else if (!mAspectRatio.equals(ratio)) {
             final Set<Size> sizes = mPreviewSizes.sizes(ratio);
             if (sizes == null) {
@@ -171,8 +184,10 @@ class Camera1 extends CameraViewImpl {
             } else {
                 mAspectRatio = ratio;
                 adjustCameraParameters();
+                return true;
             }
         }
+        return false;
     }
 
     @Override
@@ -295,7 +310,8 @@ class Camera1 extends CameraViewImpl {
     @Override
     void takePicture() {
         if (!isCameraOpened()) {
-            throw new IllegalStateException("Camera is not ready. Call start() before takePicture().");
+            throw new IllegalStateException(
+                    "Camera is not ready. Call start() before takePicture().");
         }
         if (getAutoFocus()) {
             mCamera.cancelAutoFocus();
@@ -313,13 +329,17 @@ class Camera1 extends CameraViewImpl {
     }
 
     void takePictureInternal() {
-        mCamera.takePicture(null, null, null, new Camera.PictureCallback() {
-            @Override
-            public void onPictureTaken(byte[] data, Camera camera) {
-                mCallback.onPictureTaken(data);
-                camera.startPreview();
-            }
-        });
+        if (!isPictureCaptureInProgress.getAndSet(true)) {
+            mCamera.takePicture(null, null, null, new Camera.PictureCallback() {
+                @Override
+                public void onPictureTaken(byte[] data, Camera camera) {
+                    isPictureCaptureInProgress.set(false);
+                    mCallback.onPictureTaken(data);
+                    camera.cancelAutoFocus();
+                    camera.startPreview();
+                }
+            });
+        }
     }
 
     @Override
@@ -329,14 +349,13 @@ class Camera1 extends CameraViewImpl {
         }
         mDisplayOrientation = displayOrientation;
         if (isCameraOpened()) {
-            int cameraRotation = calcCameraRotation(displayOrientation);
-            mCameraParameters.setRotation(cameraRotation);
+            mCameraParameters.setRotation(calcCameraRotation(displayOrientation));
             mCamera.setParameters(mCameraParameters);
             final boolean needsToStopPreview = mShowingPreview && Build.VERSION.SDK_INT < 14;
             if (needsToStopPreview) {
                 mCamera.stopPreview();
             }
-            mCamera.setDisplayOrientation(cameraRotation);
+            mCamera.setDisplayOrientation(calcDisplayOrientation(displayOrientation));
             if (needsToStopPreview) {
                 mCamera.startPreview();
             }
@@ -378,7 +397,7 @@ class Camera1 extends CameraViewImpl {
             mAspectRatio = Constants.DEFAULT_ASPECT_RATIO;
         }
         adjustCameraParameters();
-        mCamera.setDisplayOrientation(calcCameraRotation(mDisplayOrientation));
+        mCamera.setDisplayOrientation(calcDisplayOrientation(mDisplayOrientation));
         mCallback.onCameraOpened();
     }
 
@@ -400,22 +419,21 @@ class Camera1 extends CameraViewImpl {
             sizes = mPreviewSizes.sizes(mAspectRatio);
         }
         Size size = chooseOptimalSize(sizes);
-        final Camera.Size currentSize = mCameraParameters.getPictureSize();
-        if (currentSize.width != size.getWidth() || currentSize.height != size.getHeight()) {
-            // Largest picture size in this ratio
-            final Size pictureSize = mPictureSizes.sizes(mAspectRatio).last();
-            if (mShowingPreview) {
-                mCamera.stopPreview();
-            }
-            mCameraParameters.setPreviewSize(size.getWidth(), size.getHeight());
-            mCameraParameters.setPictureSize(pictureSize.getWidth(), pictureSize.getHeight());
-            mCameraParameters.setRotation(calcCameraRotation(mDisplayOrientation));
-            setAutoFocusInternal(mAutoFocus);
-            setFlashInternal(mFlash);
-            mCamera.setParameters(mCameraParameters);
-            if (mShowingPreview) {
-                mCamera.startPreview();
-            }
+
+        // Always re-apply camera parameters
+        // Largest picture size in this ratio
+        final Size pictureSize = mPictureSizes.sizes(mAspectRatio).last();
+        if (mShowingPreview) {
+            mCamera.stopPreview();
+        }
+        mCameraParameters.setPreviewSize(size.getWidth(), size.getHeight());
+        mCameraParameters.setPictureSize(pictureSize.getWidth(), pictureSize.getHeight());
+        mCameraParameters.setRotation(calcCameraRotation(mDisplayOrientation));
+        setAutoFocusInternal(mAutoFocus);
+        setFlashInternal(mFlash);
+        mCamera.setParameters(mCameraParameters);
+        if (mShowingPreview) {
+            mCamera.startPreview();
         }
     }
 
@@ -428,7 +446,7 @@ class Camera1 extends CameraViewImpl {
         int desiredHeight;
         final int surfaceWidth = mPreview.getWidth();
         final int surfaceHeight = mPreview.getHeight();
-        if (mDisplayOrientation == 90 || mDisplayOrientation == 270) {
+        if (isLandscape(mDisplayOrientation)) {
             desiredWidth = surfaceHeight;
             desiredHeight = surfaceWidth;
         } else {
@@ -454,12 +472,54 @@ class Camera1 extends CameraViewImpl {
         }
     }
 
-    private int calcCameraRotation(int rotation) {
+    /**
+     * Calculate display orientation
+     * https://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int)
+     *
+     * This calculation is used for orienting the preview
+     *
+     * Note: This is not the same calculation as the camera rotation
+     *
+     * @param screenOrientationDegrees Screen orientation in degrees
+     * @return Number of degrees required to rotate preview
+     */
+    private int calcDisplayOrientation(int screenOrientationDegrees) {
         if (mCameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            return (360 - (mCameraInfo.orientation + rotation) % 360) % 360;
+            return (360 - (mCameraInfo.orientation + screenOrientationDegrees) % 360) % 360;
         } else {  // back-facing
-            return (mCameraInfo.orientation - rotation + 360) % 360;
+            return (mCameraInfo.orientation - screenOrientationDegrees + 360) % 360;
         }
+    }
+
+    /**
+     * Calculate camera rotation
+     *
+     * This calculation is applied to the output JPEG either via Exif Orientation tag
+     * or by actually transforming the bitmap. (Determined by vendor camera API implementation)
+     *
+     * Note: This is not the same calculation as the display orientation
+     *
+     * @param screenOrientationDegrees Screen orientation in degrees
+     * @return Number of degrees to rotate image in order for it to view correctly.
+     */
+    private int calcCameraRotation(int screenOrientationDegrees) {
+        if (mCameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            return (mCameraInfo.orientation + screenOrientationDegrees) % 360;
+        } else {  // back-facing
+            final int landscapeFlip = isLandscape(screenOrientationDegrees) ? 180 : 0;
+            return (mCameraInfo.orientation + screenOrientationDegrees + landscapeFlip) % 360;
+        }
+    }
+
+    /**
+     * Test if the supplied orientation is in landscape.
+     *
+     * @param orientationDegrees Orientation in degrees (0,90,180,270)
+     * @return True if in landscape, false if portrait
+     */
+    private boolean isLandscape(int orientationDegrees) {
+        return (orientationDegrees == Constants.LANDSCAPE_90 ||
+                orientationDegrees == Constants.LANDSCAPE_270);
     }
 
     /**
@@ -491,7 +551,7 @@ class Camera1 extends CameraViewImpl {
         if (isCameraOpened()) {
             List<String> modes = mCameraParameters.getSupportedFlashModes();
             String mode = FLASH_MODES.get(flash);
-            if (modes!= null && modes.contains(mode)) {
+            if (modes != null && modes.contains(mode)) {
                 mCameraParameters.setFlashMode(mode);
                 mFlash = flash;
                 return true;

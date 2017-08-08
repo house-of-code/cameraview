@@ -29,6 +29,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.os.ParcelableCompat;
 import android.support.v4.os.ParcelableCompatCreatorCallbacks;
+import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.widget.FrameLayout;
 
@@ -93,7 +94,7 @@ public class CameraView extends FrameLayout
     {
     }
 
-    final CameraViewImpl mImpl;
+    CameraViewImpl mImpl;
 
     private final CallbackBridge mCallbacks;
 
@@ -115,14 +116,13 @@ public class CameraView extends FrameLayout
     public CameraView(Context context, AttributeSet attrs, int defStyleAttr)
     {
         super(context, attrs, defStyleAttr);
-        // Internal setup
-        final PreviewImpl preview;
-        if (Build.VERSION.SDK_INT < 14) {
-            preview = new SurfaceViewPreview(context, this);
-        } else
-        {
-            preview = new TextureViewPreview(context, this);
+        if (isInEditMode()){
+            mCallbacks = null;
+            mDisplayOrientationDetector = null;
+            return;
         }
+        // Internal setup
+        final PreviewImpl preview = createPreviewImpl(context);
         mCallbacks = new CallbackBridge();
         if (Build.VERSION.SDK_INT < 21)
         {
@@ -159,26 +159,40 @@ public class CameraView extends FrameLayout
         };
     }
 
+    @NonNull
+    private PreviewImpl createPreviewImpl(Context context) {
+        PreviewImpl preview;
+        if (Build.VERSION.SDK_INT < 14) {
+            preview = new SurfaceViewPreview(context, this);
+        } else {
+            preview = new TextureViewPreview(context, this);
+        }
+        return preview;
+    }
 
     @Override
     protected void onAttachedToWindow()
     {
         super.onAttachedToWindow();
-        mDisplayOrientationDetector.enable(ViewCompat2.getDisplay(this));
-
-
+	if (!isInEditMode()) {
+            mDisplayOrientationDetector.enable(ViewCompat.getDisplay(this));
+        }
     }
 
     @Override
-    protected void onDetachedFromWindow()
-    {
-        mDisplayOrientationDetector.disable();
+    protected void onDetachedFromWindow() {
+        if (!isInEditMode()) {
+            mDisplayOrientationDetector.disable();
+        }
         super.onDetachedFromWindow();
     }
 
     @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
-    {
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (isInEditMode()){
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            return;
+        }
         // Handle android:adjustViewBounds
         if (mAdjustViewBounds)
         {
@@ -275,9 +289,15 @@ public class CameraView extends FrameLayout
      * Open a camera device and start showing camera preview. This is typically called from
      * {@link Activity#onResume()}.
      */
-    public void start()
-    {
-        mImpl.start();
+    public void start() {
+        if (!mImpl.start()) {
+            //store the state ,and restore this state after fall back o Camera1
+            Parcelable state=onSaveInstanceState();
+            // Camera2 uses legacy hardware layer; fall back to Camera1
+            mImpl = new Camera1(mCallbacks, createPreviewImpl(getContext()));
+            onRestoreInstanceState(state);
+            mImpl.start();
+        }
     }
 
     /**
@@ -379,9 +399,10 @@ public class CameraView extends FrameLayout
      *
      * @param ratio The {@link AspectRatio} to be set.
      */
-    public void setAspectRatio(@NonNull AspectRatio ratio)
-    {
-        mImpl.setAspectRatio(ratio);
+    public void setAspectRatio(@NonNull AspectRatio ratio) {
+        if (mImpl.setAspectRatio(ratio)) {
+            requestLayout();
+        }
     }
 
     /**
