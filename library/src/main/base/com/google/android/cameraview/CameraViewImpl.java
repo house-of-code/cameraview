@@ -17,10 +17,8 @@
 package com.google.android.cameraview;
 
 import android.graphics.Rect;
-import android.hardware.Camera;
 import android.view.View;
 
-import java.util.List;
 import java.util.Set;
 
 abstract class CameraViewImpl {
@@ -81,6 +79,11 @@ abstract class CameraViewImpl {
         void onPictureTaken(byte[] data);
 
         void onAutoFocus(boolean success, Rect focusRect);
+
+        void onStartCaptureSession();
+
+        void onStartCaptureSessionException(Exception e);
+
     }
 
     abstract int cameraCount();

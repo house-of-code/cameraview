@@ -20,7 +20,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Rect;
-import android.hardware.Camera;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -36,7 +35,6 @@ import android.widget.FrameLayout;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 public class CameraView extends FrameLayout
@@ -530,6 +528,22 @@ public class CameraView extends FrameLayout
             }
         }
 
+        @Override
+        public void onStartCaptureSessionException(Exception e) {
+            for (Callback callback : mCallbacks)
+            {
+                callback.onStartCaptureSessionException(e);
+            }
+        }
+
+        @Override
+        public void onStartCaptureSession() {
+            for (Callback callback : mCallbacks)
+            {
+                callback.onStartCaptureSession();
+            }
+        }
+
         public void reserveRequestLayoutOnOpen() {
             mRequestLayoutOnOpen = true;
         }
@@ -617,9 +631,15 @@ public class CameraView extends FrameLayout
         public void onPictureTaken(CameraView cameraView, byte[] data) {
         }
 
-        public void onAutoFocus(boolean success, Rect rect)
-        {
+        public void onAutoFocus(boolean success, Rect rect) {
+        }
 
+        public void onStartCaptureSession()
+        {
+        }
+
+        public void onStartCaptureSessionException(Exception e)
+        {
         }
     }
 

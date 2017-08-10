@@ -16,12 +16,13 @@
 
 package com.google.android.cameraview.demo;
 
+import static com.google.android.cameraview.demo.R.id.camera;
+
 import android.Manifest;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Rect;
-import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -52,7 +53,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.Set;
 
 
@@ -90,6 +90,8 @@ public class MainActivity extends AppCompatActivity implements
 
     private int mCurrentFlash;
 
+    private int mStartCameraRetries = 0;
+
     private CameraView mCameraView;
 
     private Handler mBackgroundHandler;
@@ -113,7 +115,7 @@ public class MainActivity extends AppCompatActivity implements
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mCameraView = (CameraView) findViewById(R.id.camera);
+        mCameraView = (CameraView) findViewById(camera);
         if (mCameraView != null) {
             mCameraView.addCallback(mCallback);
         }
@@ -167,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
-            mCameraView.start();
+            startCamera();
         } else if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                 Manifest.permission.CAMERA)) {
             ConfirmationDialogFragment
@@ -179,6 +181,12 @@ public class MainActivity extends AppCompatActivity implements
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA},
                     REQUEST_CAMERA_PERMISSION);
+        }
+    }
+
+    private void startCamera(){
+        if(mCameraView != null && !mCameraView.isCameraOpened()) {
+            mCameraView.start();
         }
     }
 
@@ -325,6 +333,25 @@ public class MainActivity extends AppCompatActivity implements
             });
         }
 
+        @Override
+        public void onStartCaptureSession() {
+            mStartCameraRetries = 0;
+        }
+
+        @Override
+        public void onStartCaptureSessionException(Exception e) {
+            if(mStartCameraRetries >= 10){
+                return;
+            }
+            mStartCameraRetries++;
+            final Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mCameraView.start();
+                }
+            }, 100);
+        }
     };
 
     public static class ConfirmationDialogFragment extends DialogFragment {

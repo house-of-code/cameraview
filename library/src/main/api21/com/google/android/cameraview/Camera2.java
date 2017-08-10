@@ -93,6 +93,7 @@ class Camera2 extends CameraViewImpl {
 
         @Override
         public void onClosed(@NonNull CameraDevice camera) {
+            mCamera = null;
             mCallback.onCameraClosed();
         }
 
@@ -536,8 +537,16 @@ class Camera2 extends CameraViewImpl {
             mPreviewRequestBuilder.addTarget(surface);
             mCamera.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()),
                     mSessionCallback, null);
+            mCallback.onStartCaptureSession();
         } catch (CameraAccessException e) {
-            throw new RuntimeException("Failed to start camera session");
+            if(e.getReason() == CameraAccessException.CAMERA_DISCONNECTED) {
+                // Some phones, like the Huawei Nexus 6P, takes some time to relase the camera when
+                // returning from the system camera. We make a callback so our application can retry
+                // starting the camera again
+                mCallback.onStartCaptureSessionException(e);
+            }else {
+                throw new RuntimeException("Failed to start camera session");
+            }
         }
     }
 
